@@ -1,0 +1,30 @@
+# ============ Python ============
+__pycache__/
+*.py[cod]
+.venv/
+
+# ============ 模型权重 ============
+# 522MB，可从 HuggingFace 重新下载：
+#   .venv/Scripts/python.exe src/load_weights.py
+weights/
+
+# ============ 训练产物 ============
+# 检查点可从训练脚本重新生成，不入库
+checkpoints/
+logs/
+
+# ============ 数据 ============
+# 只跟踪小的冒烟数据；正式数据集（Alpaca 52k）不入库
+data/processed/
+data/raw/alpaca*
+
+# ============ 对话备份 ============
+# 留在磁盘上即可，不适合进版本库
+sessions/
+
+# ============ 手动下载的 wheel ============
+wheels/
+
+# ============ 编辑器 ============
+.vscode/
+.idea/
