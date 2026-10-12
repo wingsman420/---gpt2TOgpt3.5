@@ -103,10 +103,7 @@ def inspect(enc, instruction: str, response: str) -> None:
 
 
 if __name__ == "__main__":
-    import sys
-    from pathlib import Path
-
-    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    # 模板和 mask 的逻辑不依赖项目里其他模块，直接用即可，不用配 sys.path
     import tiktoken
 
     enc = tiktoken.get_encoding("gpt2")

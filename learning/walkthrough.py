@@ -5,8 +5,8 @@
 
 用法
 ====
-    .venv/Scripts/python.exe src/walkthrough.py
-    .venv/Scripts/python.exe src/walkthrough.py "The meaning of life is"
+    .venv/Scripts/python.exe learning/walkthrough.py
+    .venv/Scripts/python.exe learning/walkthrough.py "The meaning of life is"
 """
 
 from __future__ import annotations
@@ -18,16 +18,16 @@ from pathlib import Path
 import torch
 import torch.nn.functional as F
 
-# 本文件在 learning/ 下，管线代码在 ../src/
+# 本文件在 learning/ 下，内部实现在 ../src/_core/
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from load_weights import (  # noqa: E402
+from _core.model import GPT, GPTConfig  # noqa: E402
+from _core.weights import (  # noqa: E402
     DEFAULT_LOCAL_DIR,
     TRANSPOSE_SUFFIXES,
     convert_state_dict,
     load_model,
 )
-from model import GPT, GPTConfig  # noqa: E402
 
 PROMPT = "The capital of France is"
 
@@ -391,7 +391,7 @@ def main() -> None:
 
     local_dir = DEFAULT_LOCAL_DIR
     if not (local_dir / "model.safetensors").exists():
-        print(f"\n[!] 找不到权重，先运行: .venv/Scripts/python.exe src/load_weights.py")
+        print(f"\n[!] 找不到权重，先运行: .venv/Scripts/python.exe src/_core/weights.py")
         sys.exit(1)
 
     # 1. 分词

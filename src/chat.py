@@ -25,8 +25,8 @@ import torch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from load_weights import DEFAULT_LOCAL_DIR, load_model  # noqa: E402
-from template import EOS_TEXT, build_prompt  # noqa: E402
+from _sft.template import EOS_TEXT, build_prompt  # noqa: E402
+from gpt2 import DEFAULT_LOCAL_DIR, load  # noqa: E402
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
@@ -63,7 +63,9 @@ def respond(
 
 def load_checkpoint(model, ckpt_path: Path) -> int:
     """把微调权重灌进模型，返回训练步数。"""
-    ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=False)
+    # 检查点里只有基础类型和张量（见 train_sft.py 保存处），
+    # 所以可以开 weights_only=True —— 它禁止 pickle 执行任意代码，更安全。
+    ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=True)
     missing, unexpected = model.load_state_dict(ckpt["model"], strict=False)
     missing = [k for k in missing if k != "lm_head.weight"]
     if missing or unexpected:
@@ -99,15 +101,13 @@ def main() -> None:
     if not args.ckpt and not args.base:
         parser.error("要么用 --base 跑原始模型，要么用 --ckpt 指定检查点")
 
-    import tiktoken
-
-    enc = tiktoken.get_encoding("gpt2")
     questions = args.prompt or ["Who are you?"]
+    device = "cuda" if torch.cuda.is_available() else "cpu"
 
     # --- 微调后的模型 ---
     if args.ckpt:
         print("加载微调模型 ...")
-        model_ft = load_model(args.local_dir, device="cuda" if torch.cuda.is_available() else "cpu")
+        model_ft, enc = load(args.local_dir, device=device)
         load_checkpoint(model_ft, args.ckpt)
 
         print("\n" + "=" * 66)
@@ -120,10 +120,9 @@ def main() -> None:
     if args.base or args.compare:
         if args.ckpt and args.compare:
             print("\n把权重重置回原始 GPT-2 ...")
-            model_base = load_model(args.local_dir, device="cuda" if torch.cuda.is_available() else "cpu")
         else:
             print("加载原始 GPT-2 ...")
-            model_base = load_model(args.local_dir, device="cuda" if torch.cuda.is_available() else "cpu")
+        model_base, enc = load(args.local_dir, device=device)
 
         label = "原始 GPT-2（对照组）" if args.compare else "原始 GPT-2"
         print("\n" + "=" * 66)

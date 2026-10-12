@@ -70,11 +70,11 @@
 - 权重绑定 `lm_head.weight ← wte.weight`
 - 所有 Linear 都带 bias
 
-### 1.2 写 `src/load_weights.py`
+### 1.2 写权重加载模块（现在叫 `src/_core/weights.py`）
 
 把 HF 的 `state_dict` 映射进手写模型，处理转置 / bias / 命名三件事。
 
-### 1.3 写 `src/verify_parity.py` —— **关键动作**
+### 1.3 写对拍脚本（现在叫 `tests/test_parity.py`）—— **关键动作**
 
 ```
 同一 prompt → 手写模型 logits  vs  HF transformers 的 logits
@@ -182,6 +182,12 @@ SFT 跑通后再决定是否做**偏好对齐**。
 ---
 
 ## 目录结构
+
+> ⚠️ **这是项目最开始写的规划，实际实现有出入。**
+> 最终结构见 `HANDOFF.md` 的「文件清单」。
+> 主要差异：`generate.py` / `eval.py` / `dataset.py` / `inspect_batch.py`
+> 从未单独建文件（功能并入了 `gpt2.py` / `_sft/data.py` / `_sft/template.py`），
+> 且后来做了一次分层重构（`src/` 下只留四个入口，实现沉进 `_core/` 和 `_sft/`）。
 
 ```
 gpt2/

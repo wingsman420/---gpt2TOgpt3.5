@@ -13,11 +13,13 @@ from pathlib import Path
 
 import torch
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+# 本文件在 src/_sft/ 下，把 src/ 放进 sys.path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from template import build_example  # noqa: E402
+from _sft.template import build_example  # noqa: E402
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+# 本文件在 src/_sft/ 下，项目根目录要往上三层
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
 # GPT-2 的 <|endoftext|>，既当终止符也当 padding
 PAD_ID = 50256

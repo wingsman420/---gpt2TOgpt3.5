@@ -18,15 +18,16 @@ import math
 import random
 import sys
 import time
+from dataclasses import asdict
 from pathlib import Path
 
 import torch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from load_weights import DEFAULT_LOCAL_DIR, load_model  # noqa: E402
-from sft_data import encode_dataset, load_jsonl, make_batch, report  # noqa: E402
-from template import inspect  # noqa: E402
+from _sft.data import encode_dataset, load_jsonl, make_batch, report  # noqa: E402
+from _sft.template import inspect  # noqa: E402
+from gpt2 import DEFAULT_LOCAL_DIR, load  # noqa: E402
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
@@ -115,7 +116,7 @@ def main() -> None:
 
     # ---------------- 模型 ----------------
     print(f"\n[2/4] 加载 GPT-2 基础权重")
-    model = load_model(args.local_dir, device=device)
+    model, _ = load(args.local_dir, device=device)
     model.train()  # ← 从 eval 切回 train（GPT-2 dropout=0，但语义上必须切）
 
     n_params = model.num_params()
@@ -176,7 +177,16 @@ def main() -> None:
     torch.save(
         {
             "model": model.state_dict(),
-            "config": model.config,
+            # ⚠️ 存**普通 dict**，不要存 GPTConfig 对象本身。
+            #
+            # pickle 会把类的**模块路径**一起写进文件（原来是 "model.GPTConfig"）。
+            # 一旦源文件改名或移动（比如 model.py -> _core/model.py），
+            # 所有历史检查点就再也加载不了了 —— ModuleNotFoundError。
+            #
+            # 存成 asdict() 之后，检查点里只有基础类型 + 张量，两个好处：
+            #   1. 源文件怎么重构都不影响老检查点
+            #   2. torch.load 可以开 weights_only=True（更安全，见 chat.py）
+            "config": asdict(model.config),
             "step": total_steps,
             "final_loss": sum(losses[-20:]) / min(20, len(losses)),
             "data": str(args.data),

@@ -5,7 +5,7 @@
 
 用法
 ====
-    .venv/Scripts/python.exe src/sampling_demo.py
+    .venv/Scripts/python.exe learning/sampling_demo.py
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from pathlib import Path
 import torch
 import torch.nn.functional as F
 
-# 本文件在 learning/ 下，管线代码在 ../src/
+# 本文件在 learning/ 下，推理主入口在 ../src/
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from gpt2 import load  # noqa: E402

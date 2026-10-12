@@ -9,7 +9,7 @@
 
 用法
 ====
-    .venv/Scripts/python.exe src/verify_parity.py
+    .venv/Scripts/python.exe tests/test_parity.py
 """
 
 from __future__ import annotations
@@ -20,10 +20,11 @@ from pathlib import Path
 
 import torch
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+# 本文件在 tests/ 下，内部实现在 ../src/_core/
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from load_weights import DEFAULT_LOCAL_DIR, convert_state_dict, download  # noqa: E402
-from model import GPT, GPTConfig  # noqa: E402
+from _core.model import GPT, GPTConfig  # noqa: E402
+from _core.weights import DEFAULT_LOCAL_DIR, convert_state_dict, download  # noqa: E402
 
 # 判定阈值。
 #   权重转换正确  -> 差异约 1e-5 量级

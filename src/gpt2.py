@@ -26,7 +26,7 @@ import torch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from load_weights import DEFAULT_LOCAL_DIR, load_model  # noqa: E402
+from _core.weights import DEFAULT_LOCAL_DIR, load_model  # noqa: E402
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 

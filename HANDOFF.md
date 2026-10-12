@@ -86,20 +86,38 @@ gpt2/
 ├─ checkpoints/            训练产物               （不入库）
 ├─ sessions/               对话备份               （不入库）
 ├─ data/raw/smoke.jsonl    冒烟测试数据（1 条）
-├─ learning/               教学脚本，与管线代码分开
-│  ├─ walkthrough.py       推理全流程走读
-│  └─ sampling_demo.py     temperature / top_k 的作用
-└─ src/                    管线代码
-   ├─ check_env.py         环境验收
-   ├─ model.py             手写 GPT-2
-   ├─ load_weights.py      下载 + 转置转换 + 装配
-   ├─ verify_parity.py     与 HF 数值对拍
-   ├─ gpt2.py              最干净的加载 + 生成入口
-   ├─ template.py          **聊天模板 + loss mask（核心）**
-   ├─ sft_data.py          数据集加载 + batch 构造（含自回归错位）
-   ├─ train_sft.py         **SFT 训练循环**
-   └─ chat.py              对话 / 微调前后对比
+├─ src/                    ── 入口：给人看的只有这四个 ──
+│  ├─ gpt2.py              推理主入口 load() / complete()
+│  ├─ chat.py              对话 / 微调前后对比
+│  ├─ train_sft.py         SFT 训练循环
+│  ├─ check_env.py         环境验收
+│  ├─ _core/               ── 内部实现 ──
+│  │  ├─ __init__.py       分层规则说明
+│  │  ├─ model.py          手写 GPT-2
+│  │  └─ weights.py        下载 + 转置转换 + 装配
+│  ├─ _sft/                ── SFT 支持模块 ──
+│  │  ├─ __init__.py
+│  │  ├─ template.py       聊天模板 + loss mask（核心）
+│  │  └─ data.py           数据集 + batch（含自回归错位）
+│  └─ selfTry/             个人练习（独立，不参与管线）
+├─ tests/
+│  └─ test_parity.py       与 HF 数值对拍
+└─ learning/               教学脚本
+   ├─ walkthrough.py       推理全流程走读
+   └─ sampling_demo.py     temperature / top_k 的作用
 ```
+
+### 分层规则
+
+```
+gpt2.py  ──▶  _core/          推理主入口，唯一的正规使用者
+tests/   ──▶  _core/          测试豁免：对拍需要 convert_state_dict
+learning/──▶  _core/          教学豁免：走读需要逐层打印张量
+chat.py / train_sft.py ──▶ gpt2.py    应用代码只走主入口
+                       ──▶ _sft/       SFT 支持模块（下划线=非入口，非禁止）
+```
+
+**应用代码不许直接 `import _core`。** 要拿模型就走 `from gpt2 import load`。
 
 > `attention_bridge.py` 和 `export_chat.py` 曾在 `src/` 下，
 > 于 2026-09-17 从磁盘上消失（非本会话删除），未还原。
@@ -112,17 +130,17 @@ cd /d "C:\Users\Administrator\Desktop\mind fragment\gpt2"
 :: 环境验收
 .venv\Scripts\python.exe src\check_env.py
 
-:: 加载权重 + 自检
-.venv\Scripts\python.exe src\load_weights.py --no-download
+:: 加载权重 + 自检（内部模块，一般不用直接跑）
+.venv\Scripts\python.exe src\_core\weights.py --no-download
 
 :: 数值对拍
-.venv\Scripts\python.exe src\verify_parity.py
+.venv\Scripts\python.exe tests\test_parity.py
 
 :: 用原始 GPT-2 续写
 .venv\Scripts\python.exe src\gpt2.py "The capital of France is"
 
 :: 看 loss mask 长什么样（训练前必查）
-.venv\Scripts\python.exe src\template.py
+.venv\Scripts\python.exe src\_sft\template.py
 
 :: 冒烟训练（单条数据，约 30 秒）
 .venv\Scripts\python.exe src\train_sft.py --data data\raw\smoke.jsonl ^

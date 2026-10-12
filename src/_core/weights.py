@@ -22,11 +22,15 @@ HF 的 GPT-2 用 Conv1D 实现线性层，它的权重形状是
 用法
 ====
     # 下载 + 转换 + 自检
-    .venv/Scripts/python.exe src/load_weights.py
+    .venv/Scripts/python.exe src/_core/weights.py
 
     # 已经下载过，跳过下载
-    .venv/Scripts/python.exe src/load_weights.py --no-download
+    .venv/Scripts/python.exe src/_core/weights.py --no-download
 """
+
+# 注意：这是**内部模块**。面向使用者的代码请走推理主入口：
+#     from gpt2 import load, complete
+# 详见 src/_core/__init__.py 的分层规则。
 
 from __future__ import annotations
 
@@ -37,12 +41,14 @@ from pathlib import Path
 
 import torch
 
-# 允许从任意工作目录直接运行本脚本
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+# 允许从任意工作目录直接运行本脚本：把 src/ 放进 sys.path，
+# 这样下面的 `from _core.model import ...` 才找得到
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from model import GPT, GPTConfig  # noqa: E402
+from _core.model import GPT, GPTConfig  # noqa: E402
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+# 本文件在 src/_core/ 下，项目根目录要往上三层
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 DEFAULT_LOCAL_DIR = PROJECT_ROOT / "weights" / "gpt2"
 REPO_ID = "openai-community/gpt2"
 
@@ -136,7 +142,7 @@ def load_model(
     if not weights_path.exists():
         raise FileNotFoundError(
             f"找不到权重文件 {weights_path}\n"
-            f"先运行: .venv/Scripts/python.exe src/load_weights.py"
+            f"先运行: .venv/Scripts/python.exe src/_core/weights.py"
         )
 
     hf_config = json.loads(config_path.read_text(encoding="utf-8"))
