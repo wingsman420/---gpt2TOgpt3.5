@@ -3,7 +3,7 @@
 # 安装方式（在项目根目录）：
 #   .venv/Scripts/python.exe -m pip install -r requirements.txt
 #
-# torch 需要单独手动下载安装（网络原因），见 README.md。
+# torch 需要单独手动下载（网络原因），见 HANDOFF.md「环境」一节。
 
 --extra-index-url https://download.pytorch.org/whl/cu128
 
@@ -18,7 +18,7 @@ numpy>=1.26
 # 唯一不手写的模型组件：GPT-2 官方 BPE 分词器
 tiktoken>=0.8.0
 
-# ---------- 仅用于阶段 1 的权重对拍（不进入训练管线） ----------
+# ---------- 权重加载（src/_core/weights.py） ----------
 
 # 读取 HF 格式的权重文件
 safetensors>=0.4.0
@@ -26,5 +26,12 @@ safetensors>=0.4.0
 # 下载 GPT-2 官方权重（支持断点续传）
 huggingface_hub>=0.23.0
 
-# 参考实现，只在 verify_parity.py 里 import
+# ---------- 数据准备（src/_sft/prepare_alpaca.py） ----------
+
+# Alpaca 在 HF 上存成 parquet，需要它来读
+pyarrow>=15.0.0
+
+# ---------- 个人练习（src/selfTry/） ----------
+
+# selfTry 里用 transformers 的 AutoModelForCausalLM 加载，不走手写实现
 transformers>=4.40.0

@@ -39,8 +39,8 @@ token，且模型没有中文先验。单条记忆能跑通，但做真实数据
 - [x] **阶段 0：环境搭建** — 通过
 - [x] **阶段 1：手写 GPT-2 + 权重对拍** — 通过（误差 7.629e-05）
 - [x] **阶段 2：SFT 冒烟测试** — 通过（原计划"证明不会聊天"改为单条数据验证管线）
-- [ ] **阶段 3：准备正式数据集** ← **下一步**
-- [ ] 阶段 4：SFT 正式训练
+- [x] **阶段 3：准备正式数据集** — 通过（51,474 / 500，mask 全量校验 0 错误）
+- [ ] **阶段 4：SFT 正式训练** ← **下一步**
 - [ ] 阶段 5：评估与消融
 - [ ] 阶段 6：可选延伸（DPO）
 
@@ -155,6 +155,13 @@ cd /d "C:\Users\Administrator\Desktop\mind fragment\gpt2"
 
 :: 微调前后对比
 .venv\Scripts\python.exe src\chat.py --ckpt checkpoints\smoke.pt --compare --temperature 0.1
+
+:: 数据准备（阶段 3，已跑过，一般不用重跑）
+.venv\Scripts\python.exe src\_sft\prepare_alpaca.py
+
+:: 看数据集统计 / 人肉检查 mask
+.venv\Scripts\python.exe src\_sft\data.py data\processed\train.jsonl --show 0
+.venv\Scripts\python.exe src\_sft\data.py data\processed\train.jsonl --show 3
 ```
 
 ---
@@ -258,9 +265,84 @@ GPT-2 论文写的是精确 GELU，但 HF 的实现用 `gelu_new`（tanh 近似�
 
 ---
 
-## 九、剩余阶段规划
+## 九、阶段 3 记录 — 2026-10-12
 
-### 阶段 3：准备正式数据集 ← **下一步**
+把 Alpaca 52k 转成我们的 SFT jsonl 格式。
+
+### 实测数据画像
+
+```
+tatsu-lab/alpaca          52,002 条，HF 上存成 parquet（不是 json）
+  字段                    instruction / input / output / text
+  input 非空              20,679 条 (39.8%)
+  output 为空             28 条
+
+转换后                    51,974 条（丢 28 条空 output）
+  合并了 input 的          21,013 条 (40.4%)
+  train / val             51,474 / 500（seed=42，可复现）
+
+token 长度（抽样 5,000）   中位 72，p90 156，p99 303，max 686
+  max_len=512 只丢 0.1%    → 512 是合适的选择
+参与 loss 的 token         67.0%（健康比例）
+```
+
+### 三个实现要点
+
+**1. `input` 字段必须合并进 instruction**
+
+约四成样本的 `input` 非空，装的是任务素材。不合并的话指令就不完整——
+比如「把下面这句话分类」却没有「下面这句话」，模型只能学到
+"看到 classify 就输出 positive"。
+
+合并方式（`_sft/prepare_alpaca.py` 的 `merge_input`）：
+
+```
+### Instruction:
+{instruction}
+
+{input}
+
+### Response:
+{output}
+```
+
+**2. 不用 Alpaca 自己的 `text` 字段**
+
+`text` 是 Alpaca 拼好的模板字符串（带一段 "Below is an instruction that
+describes a task..." 前言），和我们的不一样。
+**训练模板必须和推理模板逐字节一致**，所以模板一律由 `template.py` 生成。
+
+**3. 数据集现在是 parquet，需要 `pyarrow`**
+
+原来 `alpaca_data.json` 的路径已经 404。HF 上只有
+`data/train-00000-of-00001-....parquet`。`pyarrow` 已加进环境。
+
+### 验收（这一步不能跳）
+
+```bat
+:: 看统计
+.venv\Scripts\python.exe src\_sft\data.py data\processed\train.jsonl --show 0
+
+:: 人肉看 mask
+.venv\Scripts\python.exe src\_sft\data.py data\processed\train.jsonl --show 3
+```
+
+实测结果：
+
+| 检查 | 结果 |
+|---|---|
+| 合并 input 的样本，边界是否精确 | ✅ 位置 28 `\n` 是 `[IGNORE]`，29 开始 ✓ |
+| 提问部分是否全部 mask | ✅ 29/29 |
+| train / val 是否重叠 | ✅ 0 条 |
+| **全量扫描 51,474 条的 mask 边界** | ✅ **0 条错误** |
+
+最后一项是全量校验，不是抽样。
+
+---
+
+## 十、剩余阶段规划
+
+### 阶段 4：SFT 正式训练 ← **下一步**
 
 模板和 loss mask 已在阶段 2 做完（`src/_sft/template.py`），
 所以只剩一件事：**把 Alpaca 52k 转成 `{"instruction":..., "response":...}` 的 jsonl**。
@@ -325,7 +407,7 @@ Alpaca 有四个字段：`instruction` / `input` / `output` / `text`。
 
 ---
 
-## 十、Git 工作流
+## 十一、Git 工作流
 
 仓库：https://github.com/wingsman420/---gpt2TOgpt3.5
 
@@ -358,14 +440,31 @@ git -c http.proxy=http://127.0.0.1:7897 push origin main
 
 ---
 
-## 十一、下一步
+## 十二、下一步
 
-**阶段 3**，两个待确认的决策：
+**阶段 4：SFT 正式训练**
 
-1. `input` 字段的合并方式（建议拼在 instruction 后面，空行分隔）
-2. val 取多少条（建议 500）
+数据已就绪（`data/processed/train.jsonl`，51,474 条），直接跑：
 
-确认后即可动手。
+```bat
+.venv\Scripts\python.exe src\train_sft.py --data data\processed\train.jsonl ^
+    --epochs 3 --lr 5e-5 --out checkpoints\sft.pt
+```
+
+**注意事项：**
+
+- ⚠️ **lr 必须是 5e-5**，不是冒烟测试的 3e-4。微调用大学习率会灾难性遗忘
+- 预计 **1.5~3 小时**（约 19,000 步）
+- 训完用 val 集评估：`src/_sft/data.py data/processed/val.jsonl` 看 loss
+- 定性对比：`src/chat.py --ckpt checkpoints/sft.pt --compare`
+
+**训练时要盯的：**
+
+| 现象 | 含义 |
+|---|---|
+| loss 平稳下降 | 正常 |
+| loss 突然变成 nan | 学习率太大或数据有问题，先看梯度裁剪 |
+| loss 降到很低但生成是垃圾 | 目标错位（阶段 2 踩过，见 `_sft/data.py` 的错位注释） |
 
 ---
 
