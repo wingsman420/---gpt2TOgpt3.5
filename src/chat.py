@@ -73,6 +73,19 @@ def _generate(
     return enc.decode(new_ids)
 
 
+def _clean(text: str) -> str:
+    """截断到第一个 EOS。
+
+    ⚠️ 模型有可能**第一个 token 就生成 EOS**（实测 "Who are you?" 用原始
+    prompt 时约 1/5 的概率）。这时截断后是空字符串，如果直接打印，
+    看起来像是程序坏了。所以给一个明确的提示。
+    """
+    body = text.split(EOS_TEXT)[0].strip()
+    if not body:
+        return "（空：模型第一个 token 就输出了 <|endoftext|>，没有产生内容）"
+    return body
+
+
 def respond(
     model,
     enc,
@@ -85,7 +98,7 @@ def respond(
     text = _generate(
         model, enc, build_prompt(instruction), max_new_tokens, temperature, top_k
     )
-    return text.split(EOS_TEXT)[0].strip()
+    return _clean(text)
 
 
 def respond_raw(
@@ -98,7 +111,7 @@ def respond_raw(
 ) -> str:
     """**不套模板**，把 instruction 当原始文本直接喂进去。"""
     text = _generate(model, enc, instruction, max_new_tokens, temperature, top_k)
-    return text.split(EOS_TEXT)[0].strip()
+    return _clean(text)
 
 
 def load_checkpoint(model, ckpt_path: Path) -> int:
