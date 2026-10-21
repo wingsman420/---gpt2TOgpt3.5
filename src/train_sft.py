@@ -2,13 +2,16 @@
 
 从官方 GPT-2 权重出发，用带 loss mask 的数据做指令微调。
 
+**日常用法：改 `src/_sft/config.py`，然后双击项目根目录的 `train.bat`。**
+
+所有超参的默认值都来自配置文件，命令行只是可选的覆盖手段：
+
+    :: 临时探路 200 步，其它参数照配置
+    .venv/Scripts/python.exe src/train_sft.py --steps 200
+
 冒烟测试（一条数据，验证管线是否跑通）：
     .venv/Scripts/python.exe src/train_sft.py ^
         --data data/raw/smoke.jsonl --steps 300 --lr 3e-4 --out checkpoints/smoke.pt
-
-正式训练（阶段 4，数万条数据）：
-    .venv/Scripts/python.exe src/train_sft.py ^
-        --data data/processed/train.jsonl --epochs 3 --lr 5e-5 --out checkpoints/sft.pt
 """
 
 from __future__ import annotations
@@ -25,9 +28,10 @@ import torch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from _sft import config  # noqa: E402
 from _sft.data import encode_dataset, load_jsonl, make_batch, report  # noqa: E402
 from _sft.template import inspect  # noqa: E402
-from gpt2 import DEFAULT_LOCAL_DIR, load  # noqa: E402
+from gpt2 import load  # noqa: E402
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
@@ -67,26 +71,33 @@ def build_optimizer(model, lr: float, weight_decay: float):
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="GPT-2 指令微调 (SFT)")
-    parser.add_argument("--data", type=Path, required=True, help="训练数据 jsonl")
-    parser.add_argument("--out", type=Path, default=PROJECT_ROOT / "checkpoints" / "sft.pt")
-    parser.add_argument("--local-dir", type=Path, default=DEFAULT_LOCAL_DIR, help="GPT-2 权重的本地目录")
+    parser = argparse.ArgumentParser(
+        description="GPT-2 指令微调 (SFT)",
+        # 把每个参数的默认值（也就是 config.py 里的值）显示在 --help 里
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    # 所有默认值都来自 src/_sft/config.py。
+    # 命令行参数仍然可用，传了就覆盖配置文件 —— 但日常训练不用敲。
+    parser.add_argument("--data", type=Path, default=config.DATA, help="训练数据 jsonl")
+    parser.add_argument("--out", type=Path, default=config.OUT, help="检查点输出路径")
+    parser.add_argument("--local-dir", type=Path, default=config.LOCAL_DIR, help="GPT-2 权重的本地目录")
 
-    parser.add_argument("--steps", type=int, default=0, help="总步数（指定则覆盖 epochs）")
-    parser.add_argument("--epochs", type=float, default=3.0)
-    parser.add_argument("--batch-size", type=int, default=8)
-    parser.add_argument("--grad-accum", type=int, default=1)
-    parser.add_argument("--max-len", type=int, default=512)
+    parser.add_argument("--steps", type=int, default=config.STEPS, help="总步数（>0 则覆盖 epochs；探路时用）")
+    parser.add_argument("--epochs", type=float, default=config.EPOCHS, help="训练轮数")
+    parser.add_argument("--batch-size", type=int, default=config.BATCH_SIZE, help="每步样本数")
+    parser.add_argument("--grad-accum", type=int, default=config.GRAD_ACCUM, help="梯度累积步数，有效 batch = batch-size × 它")
+    parser.add_argument("--max-len", type=int, default=config.MAX_LEN, help="单条样本最大 token 数，超长的丢弃")
 
-    parser.add_argument("--lr", type=float, default=5e-5)
-    parser.add_argument("--min-lr", type=float, default=0.0, help="cosine 衰减的下界")
-    parser.add_argument("--warmup", type=int, default=0, help="warmup 步数，0 表示自动取 5%")
-    parser.add_argument("--weight-decay", type=float, default=0.1)
-    parser.add_argument("--clip", type=float, default=1.0)
+    parser.add_argument("--lr", type=float, default=config.LR, help="学习率（微调必须比预训练小 1-2 个数量级）")
+    parser.add_argument("--min-lr", type=float, default=config.MIN_LR, help="cosine 衰减的下界")
+    # 注意：argparse 的 help 字符串走 % 格式化，字面量百分号必须写成 %%
+    parser.add_argument("--warmup", type=int, default=config.WARMUP, help="warmup 步数，0 表示自动取 5%%")
+    parser.add_argument("--weight-decay", type=float, default=config.WEIGHT_DECAY, help="权重衰减（只作用于权重矩阵）")
+    parser.add_argument("--clip", type=float, default=config.CLIP, help="梯度裁剪的最大范数")
 
-    parser.add_argument("--log-every", type=int, default=20)
-    parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--no-amp", action="store_true", help="关闭 bf16 混合精度")
+    parser.add_argument("--log-every", type=int, default=config.LOG_EVERY, help="每多少步打印一次日志")
+    parser.add_argument("--seed", type=int, default=config.SEED, help="随机种子")
+    parser.add_argument("--no-amp", action="store_true", default=config.NO_AMP, help="关闭 bf16 混合精度")
     args = parser.parse_args()
 
     random.seed(args.seed)

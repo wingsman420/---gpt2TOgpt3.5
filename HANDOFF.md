@@ -134,6 +134,33 @@ chat.py / train_sft.py ──▶ gpt2.py    应用代码只走主入口
 
 ## 六、常用命令
 
+### 训练：改配置 + 双击启动
+
+**日常训练不需要敲命令**：
+
+1. 打开 `src/_sft/config.py`，改参数
+2. 双击项目根目录的 **`train.bat`**
+
+`train.bat` 会 `cd` 到项目根、切 UTF-8 控制台、跑训练，结束停住窗口。
+
+命令行参数仍然可用（会覆盖配置）：
+
+```bat
+train.bat --steps 200          :: 临时探路，其它参数照配置
+```
+
+`--help` 会显示所有参数及其默认值（默认值就是 `config.py` 里的值）：
+
+```bat
+train.bat --help
+```
+
+> ⚠️ `train.bat` 必须保持**纯 ASCII**。cmd 用系统代码页解析 `.bat`，
+> 里面写中文会把行结构搞乱（实测会把中文碎片当命令执行）。
+> 中文由 Python 输出，配合 `chcp 65001` + `PYTHONIOENCODING=utf-8` 正常显示。
+
+### 其它命令
+
 ```bat
 cd /d "C:\Users\Administrator\Desktop\mind fragment\gpt2"
 
@@ -444,12 +471,20 @@ git -c http.proxy=http://127.0.0.1:7897 push origin main
 
 **阶段 4：SFT 正式训练**
 
-数据已就绪（`data/processed/train.jsonl`，51,474 条），直接跑：
+数据已就绪（`data/processed/train.jsonl`，51,474 条）。
 
-```bat
-.venv\Scripts\python.exe src\train_sft.py --data data\processed\train.jsonl ^
-    --epochs 3 --lr 5e-5 --out checkpoints\sft.pt
-```
+**改 `src/_sft/config.py`，然后双击 `train.bat`**，当前默认值：
+
+| 参数 | 值 |
+|---|---|
+| `EPOCHS` | 2 |
+| `LR` | 5e-5 |
+| `BATCH_SIZE` | 8 |
+| `GRAD_ACCUM` | 2（有效 batch 16） |
+| `MAX_LEN` | 512 |
+| `STEPS` | 0（按 epochs 算） |
+
+**建议先改 `STEPS = 200` 探路**，看 loss 曲线和单步耗时，再改回 `STEPS = 0` 跑完整训练。
 
 **注意事项：**
 
