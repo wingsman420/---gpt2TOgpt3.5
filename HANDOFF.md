@@ -180,8 +180,9 @@ cd /d "C:\Users\Administrator\Desktop\mind fragment\gpt2"
 .venv\Scripts\python.exe src\train_sft.py --data data\raw\smoke.jsonl ^
     --steps 300 --lr 3e-4 --batch-size 8 --out checkpoints\smoke.pt
 
-:: 微调前后对比
-.venv\Scripts\python.exe src\chat.py --ckpt checkpoints\smoke.pt --compare --temperature 0.1
+:: 四条件对比（推荐）—— 同时看模板的作用和微调的作用
+.venv\Scripts\python.exe src\chat.py --ckpt checkpoints\GPT3_0.pt --compare ^
+    --temperature 0.1 --prompt "List three colors."
 
 :: 数据准备（阶段 3，已跑过，一般不用重跑）
 .venv\Scripts\python.exe src\_sft\prepare_alpaca.py
